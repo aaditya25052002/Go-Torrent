@@ -21,6 +21,10 @@ func DecodeBencode(bencodedString string) (interface{}, int, error) {
 		return decodeList(bencodedString)
 	}
 
+	if firstChar == 'd' {
+		return decodeDictionary(bencodedString)
+	}
+
 	return "", 0, fmt.Errorf("unsupported bencode type: %c", firstChar)
 }
 
@@ -61,6 +65,33 @@ func decodeInteger(bencodedString string) (interface{}, int, error) {
 	}
 
 	return integer, firstEIndex + 1, nil
+}
+
+func decodeDictionary(bencodedString string) (interface{}, int, error) {
+	dict := map[string]interface{}{}
+	cursor := 1 // skip the 'd'
+
+	for cursor < len(bencodedString) && bencodedString[cursor] != 'e' {
+		key, keyConsumed, err := DecodeBencode(bencodedString[cursor:])
+		if err != nil {
+			return nil, 0, err
+		}
+
+		keyStr, ok := key.(string)
+		if !ok {
+			return nil, 0, fmt.Errorf("dictionary key must be a string, got %T", key)
+		}
+		cursor += keyConsumed
+
+		value, valueConsumed, err := DecodeBencode(bencodedString[cursor:])
+		if err != nil {
+			return nil, 0, err
+		}
+		dict[keyStr] = value
+		cursor += valueConsumed
+	}
+
+	return dict, cursor + 1, nil
 }
 
 func decodeList(bencodedString string) (interface{}, int, error) {

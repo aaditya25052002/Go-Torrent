@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	bencode "github.com/codecrafters-io/bittorrent-starter-go/bencode"
+	bencode "github.com/go-projects/go-torrent/bencode"
 )
 
 var _ = json.Marshal

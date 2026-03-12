@@ -11,12 +11,10 @@ import (
 var _ = json.Marshal
 
 func main() {
-	fmt.Fprintln(os.Stderr, "Logs from your program will appear here!")
+	data, err := os.ReadFile("sample.torrent")
 
-	command := os.Args[1]
-
-	if command == "decode" {
-		bencodedValue := os.Args[2]
+	if err == nil {
+		bencodedValue := string(data)
 
 		decoded, _, err := bencode.Decode(bencodedValue)
 		if err != nil {
@@ -27,7 +25,7 @@ func main() {
 		jsonOutput, _ := json.Marshal(decoded)
 		fmt.Println(string(jsonOutput))
 	} else {
-		fmt.Println("Unknown command: " + command)
+		fmt.Println("error reading file: ", err)
 		os.Exit(1)
 	}
 }

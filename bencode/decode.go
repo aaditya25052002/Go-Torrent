@@ -6,7 +6,7 @@ import (
 	"unicode"
 )
 
-func DecodeBencode(bencodedString string) (interface{}, int, error) {
+func Decode(bencodedString string) (interface{}, int, error) {
 	firstChar := bencodedString[0]
 
 	if unicode.IsDigit(rune(firstChar)) {
@@ -72,7 +72,7 @@ func decodeDictionary(bencodedString string) (interface{}, int, error) {
 	cursor := 1 // skip the 'd'
 
 	for cursor < len(bencodedString) && bencodedString[cursor] != 'e' {
-		key, keyConsumed, err := DecodeBencode(bencodedString[cursor:])
+		key, keyConsumed, err := Decode(bencodedString[cursor:])
 		if err != nil {
 			return nil, 0, err
 		}
@@ -83,7 +83,7 @@ func decodeDictionary(bencodedString string) (interface{}, int, error) {
 		}
 		cursor += keyConsumed
 
-		value, valueConsumed, err := DecodeBencode(bencodedString[cursor:])
+		value, valueConsumed, err := Decode(bencodedString[cursor:])
 		if err != nil {
 			return nil, 0, err
 		}
@@ -99,7 +99,7 @@ func decodeList(bencodedString string) (interface{}, int, error) {
 	cursor := 1 // skip the 'l'
 
 	for cursor < len(bencodedString) && bencodedString[cursor] != 'e' {
-		value, consumed, err := DecodeBencode(bencodedString[cursor:])
+		value, consumed, err := Decode(bencodedString[cursor:])
 		if err != nil {
 			return nil, 0, err
 		}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,13 +15,15 @@ func main() {
 	data, err := os.ReadFile("sample.torrent")
 
 	if err == nil {
-		decoded, err := bencode.ExtractInfoBytes(data)
+		infoBytes, err := bencode.ExtractInfoBytes(data)
+		infoBytesHash := sha1.Sum(infoBytes)
+
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		jsonOutput, _ := json.Marshal(decoded)
+		jsonOutput, _ := json.Marshal(infoBytesHash)
 		fmt.Println(string(jsonOutput))
 	} else {
 		fmt.Println("error reading file: ", err)

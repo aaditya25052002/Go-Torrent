@@ -14,9 +14,7 @@ func main() {
 	data, err := os.ReadFile("sample.torrent")
 
 	if err == nil {
-		bencodedValue := string(data)
-
-		decoded, _, err := bencode.Decode(bencodedValue)
+		decoded, err := bencode.ExtractInfoBytes(data)
 		if err != nil {
 			fmt.Println(err)
 			return

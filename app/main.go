@@ -43,9 +43,6 @@ func main() {
 		torrent := decoded.(map[string]any)
 		info := torrent["info"].(map[string]any)
 
-		// pieces := []byte(info["pieces"].(string))
-		// pieceHashes := splitPieceHashes(pieces)
-
 		peersApiResponse := peers.Discover(torrent["announce"].(string), infoBytesHash[:], info["piece length"].(int))
 		peersBinary := peersApiResponse["peers"].(string)
 		peersList := peers.ParseBinary([]byte(peersBinary))
@@ -62,18 +59,32 @@ func main() {
 		}
 		defer conn.Close()
 
+		totalLength := info["length"].(int)
 		pieceLength := info["piece length"].(int)
 		pieces := []byte(info["pieces"].(string))
 		pieceHashes := splitPieceHashes(pieces)
 
-		pieceIndex := 0
-		data, err := peers.DownloadPiece(conn, pieceIndex, pieceLength, pieceHashes[pieceIndex])
-		if err != nil {
-			fmt.Println("error downloading piece: ", err)
-			return
+		outputFileName := info["name"].(string)
+		outFile, _ := os.Create(outputFileName)
+		defer outFile.Close()
+
+		peers.WaitForUnChoke(conn)
+
+		outputBuffer := make([]byte, 0, totalLength)
+		for i := 0; i < len(pieceHashes); i++ {
+			thisLength := pieceLength
+			if i == len(pieceHashes)-1 {
+				thisLength = totalLength - (i * pieceLength)
+			}
+			data, err := peers.DownloadPiece(conn, i, thisLength, pieceHashes[i])
+			if err != nil {
+				fmt.Println("error downloading piece: ", err)
+				return
+			}
+			outputBuffer = append(outputBuffer, data...)
+			fmt.Printf("Downloaded piece %d (%d bytes)\n", i, len(data))
 		}
-		os.WriteFile(fmt.Sprintf("piece_%d.bin", pieceIndex), data, 0644)
-		fmt.Printf("Downloaded piece %d (%d bytes)\n", pieceIndex, len(data))
+		outFile.Write(outputBuffer)
 	} else {
 		fmt.Println("error reading file: ", err)
 		os.Exit(1)

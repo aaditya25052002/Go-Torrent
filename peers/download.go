@@ -29,9 +29,6 @@ type PeerMessage struct {
 }
 
 func DownloadPiece(conn net.Conn, pieceIndex int, pieceLength int, pieceHash []byte) ([]byte, error) {
-	requestBitfield(conn)
-	requestInterested(conn)
-	requestUnchoke(conn)
 	requestBlocks(conn, pieceIndex, pieceLength)
 
 	totalBlocks := (pieceLength + BlockSize - 1) / BlockSize
@@ -45,30 +42,6 @@ func DownloadPiece(conn net.Conn, pieceIndex int, pieceLength int, pieceHash []b
 	}
 
 	return pieceData, nil
-}
-
-func requestBitfield(conn net.Conn) {
-	if _, err := waitForMessage(conn, MsgBitfield); err != nil {
-		fmt.Println("error receiving bitfield: ", err)
-		return
-	}
-	fmt.Println("Received bitfield")
-}
-
-func requestInterested(conn net.Conn) {
-	if err := sendMessage(conn, MsgInterested, nil); err != nil {
-		fmt.Println("error sending interested: ", err)
-		return
-	}
-	fmt.Println("Sent interested")
-}
-
-func requestUnchoke(conn net.Conn) {
-	if _, err := waitForMessage(conn, MsgUnchoke); err != nil {
-		fmt.Println("error receiving unchoke: ", err)
-		return
-	}
-	fmt.Println("Received unchoke")
 }
 
 func requestBlocks(conn net.Conn, pieceIndex int, pieceLength int) {

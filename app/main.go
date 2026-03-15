@@ -65,7 +65,7 @@ func main() {
 		pieceHashes := splitPieceHashes(pieces)
 
 		outputFileName := info["name"].(string)
-		outFile, _ := os.Create(outputFileName)
+		outFile, _ := os.Create(fmt.Sprintf("files/%s", outputFileName))
 		defer outFile.Close()
 
 		peers.WaitForUnChoke(conn)

@@ -3,11 +3,21 @@ package torrent
 import (
 	"crypto/sha1"
 	"fmt"
-	"net"
 
 	"github.com/go-projects/go-torrent/bencode"
 	"github.com/go-projects/go-torrent/peers"
 )
+
+type PieceJob struct {
+	index  int
+	hash   []byte
+	length int
+}
+
+type PieceResult struct {
+	index int
+	data  []byte
+}
 
 func Run(data []byte) ([]byte, string, error) {
 	infoBytes, err := bencode.ExtractInfoBytes(data)
@@ -24,16 +34,7 @@ func Run(data []byte) ([]byte, string, error) {
 	}
 	peersList := disoverPeers(torrentInfo["announce"].(string), infoBytesHash[:], torrentInfo["piece_length"].(int))
 
-	conn, err := peers.Connect(peersList[1], infoBytesHash[:], []byte("-GO0001-123456789012"))
-	if err != nil {
-		fmt.Println("error connecting to peer: ", err)
-		return nil, "", err
-	}
-	defer conn.Close()
-
-	peers.WaitForUnChoke(conn)
-
-	outputBuffer := downloadPieces(conn, []byte(torrentInfo["pieces"].(string)), torrentInfo["piece_length"].(int), torrentInfo["total_length"].(int))
+	outputBuffer := downloadPieces(peersList, infoBytesHash[:], []byte(torrentInfo["pieces"].(string)), torrentInfo["piece_length"].(int), torrentInfo["total_length"].(int))
 
 	return outputBuffer, torrentInfo["name"].(string), nil
 }
@@ -61,22 +62,52 @@ func disoverPeers(announce string, infoBytesHash []byte, pieceLength int) []peer
 	return peersList
 }
 
-func downloadPieces(conn net.Conn, pieces []byte, pieceLength int, totalLength int) []byte {
-	outputBuffer := make([]byte, 0, totalLength)
-
+func downloadPieces(peersList []peers.Peer, infoBytesHash []byte, pieces []byte, pieceLength int, totalLength int) []byte {
 	pieceHashes := splitPieceHashes(pieces)
-	for i := 0; i < len(pieceHashes); i++ {
+	jobs := make(chan PieceJob, len(pieceHashes))
+	results := make(chan PieceResult, len(pieceHashes))
+
+	for i, hash := range pieceHashes {
 		thisLength := pieceLength
 		if i == len(pieceHashes)-1 {
 			thisLength = totalLength - (i * pieceLength)
 		}
-		data, err := peers.DownloadPiece(conn, i, thisLength, pieceHashes[i])
-		if err != nil {
-			fmt.Println("error downloading piece: ", err)
-			return nil
-		}
-		outputBuffer = append(outputBuffer, data...)
+		jobs <- PieceJob{index: i, hash: hash, length: thisLength}
 	}
+
+	for _, peer := range peersList {
+		go func(peer peers.Peer) {
+			conn, err := peers.Connect(peer, infoBytesHash, []byte("-GO0001-123456789012"))
+			if err != nil {
+				fmt.Println("error connecting to peer: ", err)
+				return
+			}
+			defer conn.Close()
+
+			peers.WaitForUnChoke(conn)
+
+			for {
+				job, ok := <-jobs
+				if !ok {
+					return
+				}
+				data, err := peers.DownloadPiece(conn, job.index, job.length, job.hash)
+				if err != nil {
+					fmt.Println("error downloading piece: ", err)
+					jobs <- job
+					continue
+				}
+				results <- PieceResult{index: job.index, data: data}
+			}
+		}(peer)
+	}
+
+	outputBuffer := make([]byte, totalLength)
+	for i := 0; i < len(pieceHashes); i++ {
+		result := <-results
+		copy(outputBuffer[result.index*pieceLength:], result.data)
+	}
+	close(jobs)
 	return outputBuffer
 }
 
@@ -94,7 +125,7 @@ func decodeTorrentInfo(data []byte) (map[string]any, error) {
 		"total_length": info["length"].(int),
 		"name":         info["name"].(string),
 		"pieces":       info["pieces"].(string),
-		"announce":     root["announce"].(string), 
+		"announce":     root["announce"].(string),
 	}
 	return torrentInfo, nil
 }

@@ -24,5 +24,3 @@ From the repository root:
 ![UI Screenshot](./assets/image.png)
 
 Open **http://localhost:8080**, choose a `.torrent` file, and click **Download**. When the transfer finishes, your browser saves the file (same behavior as a normal download).
-
-To use another port, change `:8080` in `app/main.go` or set `PORT` if you add env-based configuration later.

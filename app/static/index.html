@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Go Torrent Client</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 0 16px;
+      line-height: 1.5;
+      color: #111;
+      background: #fff;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+
+    input[type="file"] {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    button {
+      padding: 6px 12px;
+      font-size: 14px;
+    }
+
+    #filename {
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 12px;
+    }
+
+    #status {
+      margin-top: 12px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Go Torrent Client</h1>
+
+  <input type="file" id="torrentFile" accept=".torrent">
+  <div id="filename"></div>
+
+  <button id="downloadBtn" disabled>Download</button>
+
+  <div id="status"></div>
+
+  <script>
+    const fileInput = document.getElementById('torrentFile');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const statusEl = document.getElementById('status');
+    const filenameEl = document.getElementById('filename');
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      filenameEl.textContent = file ? file.name : '';
+      downloadBtn.disabled = !file;
+    });
+
+    downloadBtn.addEventListener('click', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      downloadBtn.disabled = true;
+      statusEl.textContent = 'Downloading...';
+
+      const formData = new FormData();
+      formData.append('torrent', file);
+
+      try {
+        const res = await fetch('/api/download', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (res.ok) {
+          const blob = await res.blob();
+          const filename = res.headers.get('X-Filename') || 'download';
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          a.click();
+          URL.revokeObjectURL(url);
+          statusEl.textContent = 'Download complete!';
+        } else {
+          const text = await res.text();
+          let msg = res.statusText;
+          try {
+            const data = JSON.parse(text);
+            msg = data.error || msg;
+          } catch {
+            msg = text.slice(0, 100) || msg;
+          }
+          statusEl.textContent = 'Error: ' + msg;
+        }
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+      }
+
+      downloadBtn.disabled = false;
+    });
+  </script>
+</body>
+</html>
